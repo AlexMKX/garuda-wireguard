@@ -30,7 +30,7 @@ resource "routeros_system_script" "wg_endpoint_sync" {
 resource "routeros_system_scheduler" "wg_endpoint_sync" {
   name     = "wg-endpoint-sync-${var.config.tunnel_name}"
   interval = "1m"
-  on_event = "/system script run wg-endpoint-sync-${var.config.tunnel_name}"
+  on_event = "/system script run ${routeros_system_script.wg_endpoint_sync.name}"
   policy   = ["read", "write", "test"]
   comment  = "Managed by wireguard/routeros for ${var.config.tunnel_name}"
 }

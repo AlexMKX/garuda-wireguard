@@ -20,7 +20,7 @@ resource "routeros_routing_ospf_area" "this" {
 
 resource "routeros_routing_ospf_interface_template" "this" {
   area       = routeros_routing_ospf_area.this.name
-  interfaces = toset([var.config.tunnel_name])
+  interfaces = [var.config.tunnel_name]
   type       = "ptp"
-  comment    = var.config.tunnel_name
+  comment    = "garuda-${var.config.tunnel_name}"
 }
