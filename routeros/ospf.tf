@@ -7,7 +7,7 @@
 resource "routeros_routing_ospf_instance" "this" {
   name         = "garuda-${var.config.tunnel_name}"
   router_id    = var.router_id
-  redistribute = tolist(["connected"])
+  redistribute = ["connected"]
   comment      = "garuda-${var.config.tunnel_name}"
 }
 
