@@ -39,7 +39,7 @@ run "contract_routeros_tunnel_stack" {
   }
 
   assert {
-    condition     = routeros_routing_ospf_instance.this.redistribute[0] == "connected"
+    condition     = contains(tolist(routeros_routing_ospf_instance.this.redistribute), "connected")
     error_message = "RouterOS OSPF instance must redistribute connected routes"
   }
 
