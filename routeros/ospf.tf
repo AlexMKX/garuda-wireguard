@@ -23,4 +23,10 @@ resource "routeros_routing_ospf_interface_template" "this" {
   interfaces = [var.config.tunnel_name]
   type       = "ptp"
   comment    = "garuda-${var.config.tunnel_name}"
+
+  # Match the FRR sidecar timers (backbone_network role default: hello=5, dead=15).
+  # OSPF hello-interval and dead-interval MUST be identical on both sides of
+  # a p2p link; mismatched timers silently prevent adjacency formation.
+  hello_interval = "5s"
+  dead_interval  = "15s"
 }
