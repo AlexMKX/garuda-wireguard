@@ -52,3 +52,41 @@ variable "interface_list" {
   type        = string
   default     = "LAN"
 }
+
+# --- OSPF control plane ---
+# OSPF on RouterOS is provisioned alongside the tunnel by this module
+# (inlined from the former modules/routing call). This keeps tunnel-level
+# adjacency state close to the tunnel it belongs to.
+
+variable "router_id" {
+  description = "OSPF router ID configured on the RouterOS instance."
+  type        = string
+}
+
+variable "ospf_area" {
+  description = "OSPF area identifier (e.g. \"0.0.0.0\" for the backbone)."
+  type        = string
+}
+
+variable "border_cost" {
+  description = "OSPF interface cost applied to the WireGuard tunnel interface template."
+  type        = number
+}
+
+variable "mesh_lan_interfaces" {
+  description = "RouterOS L3 interfaces owning node-local LAN prefixes that should be advertised as passive internal OSPF interfaces."
+  type        = list(string)
+  default     = []
+}
+
+variable "ospf_hello_interval" {
+  description = "OSPF hello interval in seconds applied to the tunnel interface template."
+  type        = number
+  default     = 5
+}
+
+variable "ospf_dead_interval" {
+  description = "OSPF dead interval in seconds applied to the tunnel interface template."
+  type        = number
+  default     = 15
+}
