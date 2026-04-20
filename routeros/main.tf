@@ -73,15 +73,13 @@ resource "routeros_routing_ospf_area" "this" {
 }
 
 resource "routeros_routing_ospf_interface_template" "tunnel" {
-  for_each = toset([var.config.tunnel_name])
-
   area           = routeros_routing_ospf_area.this.name
-  interfaces     = toset([each.key])
+  interfaces     = toset([var.config.tunnel_name])
   type           = "ptp"
   cost           = var.border_cost
   hello_interval = "${var.ospf_hello_interval}s"
   dead_interval  = "${var.ospf_dead_interval}s"
-  comment        = each.key
+  comment        = var.config.tunnel_name
 }
 
 resource "routeros_routing_ospf_interface_template" "lan" {

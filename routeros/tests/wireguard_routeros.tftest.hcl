@@ -71,8 +71,13 @@ run "contract_ospf_tunnel_template_covers_tunnel_interface" {
   command = plan
 
   assert {
-    condition     = contains([for tpl in routeros_routing_ospf_interface_template.tunnel : tpl.comment], var.config.tunnel_name)
-    error_message = "A tunnel OSPF interface template must be emitted for the wireguard tunnel interface managed by this module."
+    condition     = routeros_routing_ospf_interface_template.tunnel.comment == var.config.tunnel_name
+    error_message = "The tunnel OSPF interface template must be labelled with the wireguard tunnel name managed by this module."
+  }
+
+  assert {
+    condition     = routeros_routing_ospf_interface_template.tunnel.type == "ptp"
+    error_message = "The tunnel OSPF interface template must declare point-to-point type."
   }
 }
 
