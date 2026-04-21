@@ -8,18 +8,18 @@ variables {
     hostname      = "test-host"
     tunnel_name   = "wg_test"
     address       = "10.9.19.1/24"
-    private_key   = "testkey"
-    public_key    = "testpub"
-    preshared_key = "testpsk"
+    private_key   = "aGVsbG8gd29ybGQ="
+    public_key    = "aGVsbG8gd29ybGQ="
+    preshared_key = "aGVsbG8gd29ybGQ="
     listen_port   = 55824
   }
   peer = {
     hostname      = "peer-host"
     tunnel_name   = "wg_test"
     address       = "10.9.19.2/24"
-    private_key   = "peerkey"
-    public_key    = "peerpub"
-    preshared_key = "testpsk"
+    private_key   = "aGVsbG8gd29ybGQ="
+    public_key    = "aGVsbG8gd29ybGQ="
+    preshared_key = "aGVsbG8gd29ybGQ="
   }
   allowed_nets = ["0.0.0.0/0"]
   table        = "off"

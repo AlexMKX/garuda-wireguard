@@ -8,18 +8,18 @@ variables {
     hostname      = "routeros-test"
     tunnel_name   = "wg_tik"
     address       = "10.9.20.2/24"
-    private_key   = "private"
-    public_key    = "public"
-    preshared_key = "psk"
+    private_key   = "aGVsbG8gd29ybGQ="
+    public_key    = "aGVsbG8gd29ybGQ="
+    preshared_key = "aGVsbG8gd29ybGQ="
     listen_port   = 13231
   }
   peer = {
     hostname      = "rutestvpn"
     tunnel_name   = "wg_tik"
     address       = "10.9.20.1/24"
-    private_key   = "private-peer"
-    public_key    = "public-peer"
-    preshared_key = "psk"
+    private_key   = "aGVsbG8gd29ybGQ="
+    public_key    = "aGVsbG8gd29ybGQ="
+    preshared_key = "aGVsbG8gd29ybGQ="
     listen_port   = 55825
     endpoint_host = "vpn.example.com"
   }
@@ -62,9 +62,9 @@ run "contract_requires_peer_endpoint_host" {
       hostname      = "rutestvpn"
       tunnel_name   = "wg_tik"
       address       = "10.9.20.1/24"
-      private_key   = "private-peer"
-      public_key    = "public-peer"
-      preshared_key = "psk"
+      private_key   = "aGVsbG8gd29ybGQ="
+      public_key    = "aGVsbG8gd29ybGQ="
+      preshared_key = "aGVsbG8gd29ybGQ="
       listen_port   = 55825
     }
   }
