@@ -25,7 +25,7 @@ resource "routeros_interface_wireguard_peer" "this" {
   endpoint_port        = var.peer.listen_port
   preshared_key        = var.config.preshared_key
   persistent_keepalive = "25s"
-  comment              = "${var.config.tunnel_name}:${var.peer.hostname}"
+  comment              = "${var.config.tunnel_name}:${var.hostname}"
 }
 
 resource "routeros_ip_firewall_filter" "wireguard_input" {

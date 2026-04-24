@@ -5,7 +5,6 @@ mock_provider "routeros" {}
 variables {
   hostname = "routeros-test"
   config = {
-    hostname      = "routeros-test"
     tunnel_name   = "wg_tik"
     address       = "10.9.20.2/24"
     private_key   = "aGVsbG8gd29ybGQ="
@@ -14,7 +13,6 @@ variables {
     listen_port   = 13231
   }
   peer = {
-    hostname      = "rutestvpn"
     tunnel_name   = "wg_tik"
     address       = "10.9.20.1/24"
     private_key   = "aGVsbG8gd29ybGQ="
@@ -59,7 +57,6 @@ run "contract_requires_peer_endpoint_host" {
 
   variables {
     peer = {
-      hostname      = "rutestvpn"
       tunnel_name   = "wg_tik"
       address       = "10.9.20.1/24"
       private_key   = "aGVsbG8gd29ybGQ="
