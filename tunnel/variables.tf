@@ -9,7 +9,7 @@ variable "subnet" {
 }
 
 variable "peers" {
-  description = "Map of exactly two peers keyed by hostname. Each peer declares its tunnel address, listen port, and optional endpoint."
+  description = "Map of exactly two peers keyed by caller-chosen key (e.g. core/edge). Each peer declares its tunnel address, listen port, and optional endpoint."
   type = map(object({
     address       = string
     listen_port   = number

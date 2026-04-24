@@ -5,7 +5,6 @@ mock_provider "ansible" {}
 variables {
   host_name = "test-host"
   config = {
-    hostname      = "test-host"
     tunnel_name   = "wg_test"
     address       = "10.9.19.1/24"
     private_key   = "aGVsbG8gd29ybGQ="
@@ -14,7 +13,6 @@ variables {
     listen_port   = 55824
   }
   peer = {
-    hostname      = "peer-host"
     tunnel_name   = "wg_test"
     address       = "10.9.19.2/24"
     private_key   = "aGVsbG8gd29ybGQ="

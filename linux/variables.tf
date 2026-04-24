@@ -12,7 +12,6 @@ variable "host_name" {
 variable "config" {
   description = "Canonical tunnel config object for this endpoint (from wireguard/tunnel output)."
   type = object({
-    hostname      = string
     tunnel_name   = string
     address       = string
     private_key   = string
@@ -26,7 +25,6 @@ variable "config" {
 variable "peer" {
   description = "Canonical tunnel config object for the remote endpoint (from wireguard/tunnel output)."
   type = object({
-    hostname      = string
     tunnel_name   = string
     address       = string
     private_key   = string
