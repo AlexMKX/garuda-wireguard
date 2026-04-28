@@ -7,7 +7,7 @@
 
 locals {
   payload = {
-    wireguard_interface_name   = var.config.tunnel_name
+    wireguard_interface_name   = var.config.kernel_ifname
     wireguard_address          = var.config.address
     wireguard_table            = var.table
     wireguard_private_key      = var.config.private_key

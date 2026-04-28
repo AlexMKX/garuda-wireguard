@@ -5,16 +5,18 @@ mock_provider "ansible" {}
 variables {
   host_name = "test-host"
   config = {
-    tunnel_name   = "wg_test"
-    address       = "10.9.19.1/24"
+    tunnel_name   = "test-env-wg-test"
+    kernel_ifname = "wg-test"
+    address       = "192.0.2.1/24"
     private_key   = "aGVsbG8gd29ybGQ="
     public_key    = "aGVsbG8gd29ybGQ="
     preshared_key = "aGVsbG8gd29ybGQ="
     listen_port   = 55824
   }
   peer = {
-    tunnel_name   = "wg_test"
-    address       = "10.9.19.2/24"
+    tunnel_name   = "test-env-wg-test"
+    kernel_ifname = "wg-test"
+    address       = "192.0.2.2/24"
     private_key   = "aGVsbG8gd29ybGQ="
     public_key    = "aGVsbG8gd29ybGQ="
     preshared_key = "aGVsbG8gd29ybGQ="
@@ -23,7 +25,7 @@ variables {
   table        = "off"
   labels       = { "garuda.operator-scope" = "backbone_network" }
   connection_data = {
-    host                 = "test.example.com"
+    host                 = "test.example.net"
     user                 = "testuser"
     password             = null
     connection           = "ssh"
@@ -42,5 +44,14 @@ run "contract_labels_variable_accepts_map_string" {
   assert {
     condition     = var.labels["garuda.operator-scope"] == "backbone_network"
     error_message = "labels must pass through verbatim as a map(string)"
+  }
+}
+
+run "contract_payload_uses_kernel_ifname" {
+  command = plan
+
+  assert {
+    condition     = local.payload.wireguard_interface_name == "wg-test"
+    error_message = "Linux WG ifname must come from config.kernel_ifname (raw, ≤15 chars), not config.tunnel_name (env-prefixed)"
   }
 }

@@ -16,26 +16,28 @@ mock_provider "dns" {
 variables {
   hostname = "routeros-test"
   config = {
-    tunnel_name   = "wg_tik"
-    address       = "10.9.20.2/24"
+    tunnel_name   = "test-env-wg-tik"
+    kernel_ifname = "wg-tik"
+    address       = "192.0.2.2/24"
     private_key   = "aGVsbG8gd29ybGQ="
     public_key    = "aGVsbG8gd29ybGQ="
     preshared_key = "aGVsbG8gd29ybGQ="
     listen_port   = 13231
   }
   peer = {
-    tunnel_name   = "wg_tik"
-    address       = "10.9.20.1/24"
+    tunnel_name   = "test-env-wg-tik"
+    kernel_ifname = "wg-tik"
+    address       = "192.0.2.1/24"
     private_key   = "aGVsbG8gd29ybGQ="
     public_key    = "aGVsbG8gd29ybGQ="
     preshared_key = "aGVsbG8gd29ybGQ="
     listen_port   = 55825
-    endpoint_host = "vpn.example.com"
+    endpoint_host = "vpn.example.net"
   }
-  subnet         = "10.9.20.0/24"
+  subnet         = "192.0.2.0/24"
   allowed_nets   = ["0.0.0.0/0", "224.0.0.0/4"]
   interface_list = "LAN"
-  router_id      = "10.9.20.2"
+  router_id      = "192.0.2.2"
   ospf_area      = "0.0.0.0"
 }
 
@@ -43,7 +45,7 @@ run "contract_routeros_tunnel_stack" {
   command = plan
 
   assert {
-    condition     = routeros_routing_ospf_instance.this.name == "garuda-wg_tik"
+    condition     = routeros_routing_ospf_instance.this.name == "garuda-test-env-wg-tik"
     error_message = "RouterOS module must create a per-tunnel OSPF instance"
   }
 
@@ -53,7 +55,7 @@ run "contract_routeros_tunnel_stack" {
   }
 
   assert {
-    condition     = routeros_routing_table.wg_bypass.name == "wg-bypass-wg_tik"
+    condition     = routeros_routing_table.wg_bypass.name == "wg-bypass-test-env-wg-tik"
     error_message = "RouterOS module must create a per-tunnel bypass routing table"
   }
 
@@ -68,7 +70,7 @@ run "contract_routeros_tunnel_stack" {
   }
 
   assert {
-    condition     = output.bypass_table_name == "wg-bypass-wg_tik"
+    condition     = output.bypass_table_name == "wg-bypass-test-env-wg-tik"
     error_message = "RouterOS module must expose bypass_table_name so callers can populate it with a physical-WAN default route"
   }
 }
@@ -78,8 +80,9 @@ run "contract_requires_peer_endpoint_host" {
 
   variables {
     peer = {
-      tunnel_name   = "wg_tik"
-      address       = "10.9.20.1/24"
+      tunnel_name   = "test-env-wg-tik"
+      kernel_ifname = "wg-tik"
+      address       = "192.0.2.1/24"
       private_key   = "aGVsbG8gd29ybGQ="
       public_key    = "aGVsbG8gd29ybGQ="
       preshared_key = "aGVsbG8gd29ybGQ="
@@ -88,4 +91,13 @@ run "contract_requires_peer_endpoint_host" {
   }
 
   expect_failures = [var.peer]
+}
+
+run "contract_routeros_interface_uses_tunnel_name" {
+  command = plan
+
+  assert {
+    condition     = routeros_interface_wireguard.this.name == "test-env-wg-tik"
+    error_message = "RouterOS WG interface name must be tunnel_name (env-prefixed), not kernel_ifname"
+  }
 }

@@ -13,6 +13,7 @@ variable "config" {
   description = "Canonical tunnel config object for the RouterOS endpoint (from wireguard/tunnel output)."
   type = object({
     tunnel_name   = string
+    kernel_ifname = string
     address       = string
     private_key   = string
     public_key    = string
@@ -26,6 +27,7 @@ variable "peer" {
   description = "Canonical tunnel config object for the remote endpoint (from wireguard/tunnel output)."
   type = object({
     tunnel_name   = string
+    kernel_ifname = string
     address       = string
     private_key   = string
     public_key    = string
