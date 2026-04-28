@@ -2,6 +2,17 @@
 
 mock_provider "routeros" {}
 
+# bypass.tf calls data.dns_a_record_set on the peer endpoint hostname
+# to drive the endpoint sync script's launch_trigger. Mock it so tests
+# don't depend on real DNS; the value only matters for the sha1 hash.
+mock_provider "dns" {
+  mock_data "dns_a_record_set" {
+    defaults = {
+      addrs = ["192.0.2.1"]
+    }
+  }
+}
+
 variables {
   hostname = "routeros-test"
   config = {
@@ -49,6 +60,16 @@ run "contract_routeros_tunnel_stack" {
   assert {
     condition     = routeros_system_scheduler.wg_endpoint_sync.interval == "1m"
     error_message = "RouterOS module must schedule endpoint sync every minute"
+  }
+
+  assert {
+    condition     = routeros_system_script.wg_endpoint_sync.launch_trigger != ""
+    error_message = "RouterOS module must set launch_trigger so the sync script runs on apply rather than waiting for the next scheduler tick"
+  }
+
+  assert {
+    condition     = output.bypass_table_name == "wg-bypass-wg_tik"
+    error_message = "RouterOS module must expose bypass_table_name so callers can populate it with a physical-WAN default route"
   }
 }
 

@@ -20,10 +20,16 @@
 :local dstAddr ($resolvedIp . "/32")
 :local existing [/routing rule find where comment=$ruleComment]
 
+# Use lookup-only-in-table (NOT lookup): if the bypass table is empty
+# at the moment this rule is evaluated, packets must be dropped rather
+# than fall through to main, where the WG default would self-loop the
+# handshake back into the tunnel. With persistent-keepalive=25s the
+# handshake retries, by which point the caller-supplied default route
+# is in the bypass table.
 :if ([:len $existing] = 0) do={
-  /routing rule add dst-address=$dstAddr action=lookup table=$tableName comment=$ruleComment
+  /routing rule add dst-address=$dstAddr action=lookup-only-in-table table=$tableName comment=$ruleComment
   :log info ("wg-ep-sync: +rule " . $dstAddr . " [" . "${tunnel_name}" . "]")
 } else={
-  /routing rule set ($existing->0) dst-address=$dstAddr action=lookup table=$tableName comment=$ruleComment
+  /routing rule set ($existing->0) dst-address=$dstAddr action=lookup-only-in-table table=$tableName comment=$ruleComment
   :log info ("wg-ep-sync: rule updated " . $dstAddr . " [" . "${tunnel_name}" . "]")
 }
