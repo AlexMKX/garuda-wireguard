@@ -1,0 +1,134 @@
+---
+# Source: wireguard/templates/secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wg-wg-pt-keys
+  namespace: "garuda"
+  labels:
+    app.kubernetes.io/name: wireguard
+    app.kubernetes.io/instance: "wg-pt"
+    app.kubernetes.io/managed-by: Helm
+    garuda.managed-by: helm
+type: Opaque
+stringData:
+  WG_PRIVATE_KEY: "stubprivatekey"
+  WG_PEER_PUBLIC_KEY: "stubpublickey"
+
+---
+# Source: wireguard/templates/configmap-frr.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wg-wg-pt-frr
+  namespace: "garuda"
+  labels:
+    app.kubernetes.io/name: wireguard
+    app.kubernetes.io/instance: "wg-pt"
+    app.kubernetes.io/managed-by: Helm
+    garuda.managed-by: helm
+data:
+  frr.conf: |
+    frr defaults traditional
+    log file /tmp/frr.log
+    interface wg-pt
+     ip ospf area 0.0.0.0
+    ip ospf hello-interval 5
+     ip ospf dead-interval 15
+     ip ospf mtu-ignore
+    router ospf
+     ospf router-id 10.130.30.1
+    redistribute connected
+    default-information originate
+    
+  daemons: |
+    ospfd=yes
+    zebra=yes
+
+---
+# Source: wireguard/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "wg-pt"
+  namespace: "garuda"
+  labels:
+    app.kubernetes.io/name: wireguard
+    app.kubernetes.io/instance: "wg-pt"
+    app.kubernetes.io/managed-by: Helm
+    garuda.managed-by: helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wireguard
+      app.kubernetes.io/instance: "wg-pt"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wireguard
+        app.kubernetes.io/instance: "wg-pt"
+        app.kubernetes.io/managed-by: Helm
+        garuda.managed-by: helm
+      annotations:
+        k8s.v1.cni.cncf.io/networks: "backbone@backbone,border@border"
+    spec:
+      restartPolicy: Always
+      # Match the existing docker-compose stack's sysctls byte-for-byte.
+      # net.ipv4.conf.all.* and net.ipv4.ip_forward are namespaced and safe;
+      # the kubelet allows them in pod securityContext.sysctls without an
+      # --allowed-unsafe-sysctls flag.
+      securityContext:
+        sysctls:
+          - name: net.ipv4.ip_forward
+            value: "1"
+          - name: net.ipv4.conf.all.src_valid_mark
+            value: "1"
+          - name: net.ipv4.conf.all.rp_filter
+            value: "2"
+      containers:
+        - name: wg
+          # Container entrypoint is owned by the image (ghcr.io/alexmkx/garuda-wireguard).
+          # That image already reads the env vars below and brings up the
+          # WireGuard interface — identical contract to roles/wireguard's
+          # docker-compose.yml.j2. No command/args override here.
+          image: "ghcr.io/alexmkx/garuda-wireguard:latest"
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: wg-wg-pt-keys
+          env:
+            - name: WG_KERNEL_IFNAME
+              value: "wg-pt"
+            - name: WG_ADDRESS
+              value: "192.0.2.2/30"
+            - name: WG_PEER_ADDRESS
+              value: "192.0.2.1/30"
+            - name: WG_PEER_ENDPOINT
+              value: "hub.example.net"
+            - name: WG_ALLOWED_IPS
+              value: "0.0.0.0/0"
+            - name: WG_TABLE
+              value: "off"
+            - name: WG_PERSISTENT_KEEPALIVE
+              value: "25"
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN"]
+        - name: frr-sidecar
+          # Entrypoint owned by ghcr.io/alexmkx/garuda-frr-sidecar. The image
+          # starts zebra and ospfd reading the mounted /etc/frr/frr.conf and
+          # /etc/frr/daemons. Same contract as roles/backbone_network's
+          # injected sidecar container today.
+          image: "ghcr.io/alexmkx/garuda-frr-sidecar:latest"
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN"]
+          volumeMounts:
+            - name: frr-config
+              mountPath: /etc/frr
+      volumes:
+        - name: frr-config
+          configMap:
+            name: wg-wg-pt-frr

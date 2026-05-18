@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.name | quote }}
+  namespace: {{ .Values.namespace | quote }}
+  labels:
+    {{- include "wireguard.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "wireguard.selector" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "wireguard.labels" . | nindent 8 }}
+      annotations:
+        k8s.v1.cni.cncf.io/networks: {{ include "wireguard.networks" . | quote }}
+    spec:
+      restartPolicy: Always
+      # Match the existing docker-compose stack's sysctls byte-for-byte.
+      # net.ipv4.conf.all.* and net.ipv4.ip_forward are namespaced and safe;
+      # the kubelet allows them in pod securityContext.sysctls without an
+      # --allowed-unsafe-sysctls flag.
+      securityContext:
+        sysctls:
+          - name: net.ipv4.ip_forward
+            value: "1"
+          - name: net.ipv4.conf.all.src_valid_mark
+            value: "1"
+          - name: net.ipv4.conf.all.rp_filter
+            value: "2"
+      containers:
+        - name: wg
+          # Container entrypoint is owned by the image (ghcr.io/alexmkx/garuda-wireguard).
+          # That image already reads the env vars below and brings up the
+          # WireGuard interface — identical contract to roles/wireguard's
+          # docker-compose.yml.j2. No command/args override here.
+          image: {{ .Values.images.wireguard | quote }}
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: wg-{{ .Values.name }}-keys
+          env:
+            - name: WG_KERNEL_IFNAME
+              value: {{ .Values.config.kernel_ifname | quote }}
+            - name: WG_ADDRESS
+              value: {{ .Values.config.address | quote }}
+            - name: WG_PEER_ADDRESS
+              value: {{ .Values.peer.address | quote }}
+            - name: WG_PEER_ENDPOINT
+              value: {{ .Values.peer.endpoint_host | quote }}
+            - name: WG_ALLOWED_IPS
+              value: {{ join "," .Values.allowed_nets | quote }}
+            - name: WG_TABLE
+              value: {{ .Values.table | quote }}
+            - name: WG_PERSISTENT_KEEPALIVE
+              value: {{ .Values.persistent_keepalive | quote }}
+            {{- with .Values.config.listen_port }}
+            - name: WG_LISTEN_PORT
+              value: {{ . | quote }}
+            {{- end }}
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN"]
+        {{- if .Values.ospf }}
+        - name: frr-sidecar
+          # Entrypoint owned by ghcr.io/alexmkx/garuda-frr-sidecar. The image
+          # starts zebra and ospfd reading the mounted /etc/frr/frr.conf and
+          # /etc/frr/daemons. Same contract as roles/backbone_network's
+          # injected sidecar container today.
+          image: {{ .Values.images.frr | quote }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN"]
+          volumeMounts:
+            - name: frr-config
+              mountPath: /etc/frr
+        {{- end }}
+      {{- if .Values.ospf }}
+      volumes:
+        - name: frr-config
+          configMap:
+            name: wg-{{ .Values.name }}-frr
+      {{- end }}
