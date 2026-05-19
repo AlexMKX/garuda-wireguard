@@ -22,12 +22,13 @@
     "peer": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["public_key", "endpoint_host", "address"],
+      "required": ["public_key", "endpoint_host", "endpoint_listen_port", "address"],
       "properties": {
-        "public_key":    { "type": "string" },
-        "endpoint_host": { "type": "string" },
-        "preshared_key": { "type": "string" },
-        "address":       { "type": "string" }
+        "public_key":           { "type": "string" },
+        "endpoint_host":        { "type": "string" },
+        "endpoint_listen_port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "preshared_key":        { "type": "string" },
+        "address":              { "type": "string" }
       }
     },
     "allowed_nets":         { "type": "array", "items": { "type": "string" } },

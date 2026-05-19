@@ -10,6 +10,7 @@ config:
 peer:
   public_key: ""
   endpoint_host: ""
+  endpoint_listen_port: 51820
   preshared_key: ""
   address: ""
 allowed_nets: []
