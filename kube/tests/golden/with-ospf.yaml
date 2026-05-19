@@ -16,36 +16,6 @@ stringData:
   WG_PEER_PUBLIC_KEY: "stubpublickey"
 
 ---
-# Source: wireguard/templates/configmap-frr.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: wg-wg-pt-frr
-  namespace: "garuda"
-  labels:
-    app.kubernetes.io/name: wireguard
-    app.kubernetes.io/instance: "wg-pt"
-    app.kubernetes.io/managed-by: Helm
-    garuda.managed-by: helm
-data:
-  frr.conf: |
-    frr defaults traditional
-    log file /tmp/frr.log
-    interface wg-pt
-     ip ospf area 0.0.0.0
-    ip ospf hello-interval 5
-     ip ospf dead-interval 15
-     ip ospf mtu-ignore
-    router ospf
-     ospf router-id 10.130.30.1
-    redistribute connected
-    default-information originate
-    
-  daemons: |
-    ospfd=yes
-    zebra=yes
-
----
 # Source: wireguard/templates/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -75,9 +45,10 @@ spec:
     spec:
       restartPolicy: Always
       # Match the existing docker-compose stack's sysctls byte-for-byte.
-      # net.ipv4.conf.all.* and net.ipv4.ip_forward are namespaced and safe;
-      # the kubelet allows them in pod securityContext.sysctls without an
-      # --allowed-unsafe-sysctls flag.
+      # All three are flagged "unsafe" by upstream kubelet and must be
+      # allow-listed at k3s install time via
+      # `--kubelet-arg=allowed-unsafe-sysctls=net.ipv4.ip_forward,net.ipv4.conf.all.src_valid_mark,net.ipv4.conf.all.rp_filter`.
+      # See examples/mini-site/infra/gcp.tf for the operator-side wiring.
       securityContext:
         sysctls:
           - name: net.ipv4.ip_forward
@@ -88,47 +59,60 @@ spec:
             value: "2"
       containers:
         - name: wg
-          # Container entrypoint is owned by the image (ghcr.io/alexmkx/garuda-wireguard).
-          # That image already reads the env vars below and brings up the
-          # WireGuard interface — identical contract to roles/wireguard's
-          # docker-compose.yml.j2. No command/args override here.
+          # Container entrypoint is owned by the image
+          # (ghcr.io/alexmkx/garuda-wireguard). The image reads env vars
+          # below and brings up the WireGuard interface. Variable names
+          # match roles/wireguard/files/wireguard/entrypoint.sh so the
+          # image contract is identical to the Compose stack.
           image: "ghcr.io/alexmkx/garuda-wireguard:latest"
           imagePullPolicy: IfNotPresent
           envFrom:
+            # The secret carries WG_PRIVATE_KEY, WG_PEER_PUBLIC_KEY and
+            # the optional WG_PEER_PRESHARED_KEY.
             - secretRef:
                 name: wg-wg-pt-keys
           env:
-            - name: WG_KERNEL_IFNAME
+            - name: WG_INTERFACE
               value: "wg-pt"
             - name: WG_ADDRESS
               value: "192.0.2.2/30"
-            - name: WG_PEER_ADDRESS
-              value: "192.0.2.1/30"
-            - name: WG_PEER_ENDPOINT
-              value: "hub.example.net"
-            - name: WG_ALLOWED_IPS
-              value: "0.0.0.0/0"
             - name: WG_TABLE
               value: "off"
-            - name: WG_PERSISTENT_KEEPALIVE
+            - name: WG_PEER_ENDPOINT
+              value: "hub.example.net"
+            - name: WG_PEER_ALLOWED_IPS
+              value: "0.0.0.0/0"
+            - name: WG_PEER_PERSISTENT_KEEPALIVE
               value: "25"
           securityContext:
             capabilities:
               add: ["NET_ADMIN"]
         - name: frr-sidecar
-          # Entrypoint owned by ghcr.io/alexmkx/garuda-frr-sidecar. The image
-          # starts zebra and ospfd reading the mounted /etc/frr/frr.conf and
-          # /etc/frr/daemons. Same contract as roles/backbone_network's
-          # injected sidecar container today.
+          # Entrypoint owned by ghcr.io/alexmkx/garuda-frr-sidecar. The
+          # image reads FRR_CONF_B64 / DAEMONS_B64 / VTYSH_CONF_B64 env
+          # vars and writes /etc/frr/{frr.conf,daemons,vtysh.conf}
+          # before starting zebra and ospfd. Same contract as the FRR
+          # sidecars rendered by roles/backbone_network's
+          # ospf_injector. BACKBONE_IP is the address allocated by
+          # Multus on the backbone NAD; the sidecar consumes it for
+          # transit-watcher routing decisions.
           image: "ghcr.io/alexmkx/garuda-frr-sidecar:latest"
           imagePullPolicy: IfNotPresent
+          env:
+            - name: FRR_CONF_B64
+              value: "ZnJyIGRlZmF1bHRzIHRyYWRpdGlvbmFsCmxvZyBmaWxlIC90bXAvZnJyLmxvZwppbnRlcmZhY2Ugd2ctcHQKIGlwIG9zcGYgYXJlYSAwLjAuMC4wCmlwIG9zcGYgaGVsbG8taW50ZXJ2YWwgNQogaXAgb3NwZiBkZWFkLWludGVydmFsIDE1CiBpcCBvc3BmIG10dS1pZ25vcmUKcm91dGVyIG9zcGYKIG9zcGYgcm91dGVyLWlkIDEwLjEzMC4zMC4xCnJlZGlzdHJpYnV0ZSBjb25uZWN0ZWQKZGVmYXVsdC1pbmZvcm1hdGlvbiBvcmlnaW5hdGUK"
+            - name: DAEMONS_B64
+              value: "b3NwZmQ9eWVzCnplYnJhPXllcwo="
+            - name: VTYSH_CONF_B64
+              value: "c2VydmljZSBpbnRlZ3JhdGVkLXZ0eXNoLWNvbmZpZwo="
+            - name: BACKBONE_IP
+              valueFrom:
+                fieldRef:
+                  # Pod IP on the primary cluster network. Backbone IP
+                  # (Multus-assigned secondary interface) is not
+                  # exposed via downward API — the sidecar discovers it
+                  # at runtime from the interface itself.
+                  fieldPath: status.podIP
           securityContext:
             capabilities:
               add: ["NET_ADMIN"]
-          volumeMounts:
-            - name: frr-config
-              mountPath: /etc/frr
-      volumes:
-        - name: frr-config
-          configMap:
-            name: wg-wg-pt-frr
