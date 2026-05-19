@@ -15,10 +15,11 @@ variables {
   }
 
   peer = {
-    public_key    = "stubpublickey"
-    endpoint_host = "hub.example.net"
-    preshared_key = null
-    address       = "192.0.2.1/30"
+    public_key           = "stubpublickey"
+    endpoint_host        = "hub.example.net"
+    endpoint_listen_port = 51820
+    preshared_key        = null
+    address              = "192.0.2.1/30"
   }
 
   allowed_nets    = ["0.0.0.0/0"]

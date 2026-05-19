@@ -32,12 +32,18 @@ variable "config" {
 }
 
 variable "peer" {
-  description = "WireGuard remote-peer configuration."
+  description = <<EOT
+WireGuard remote-peer configuration. `endpoint_host` is the bare
+hostname or IP (without port); the chart joins it with
+`endpoint_listen_port` to produce the `host:port` form the image
+entrypoint expects.
+EOT
   type = object({
-    public_key    = string
-    endpoint_host = string
-    preshared_key = optional(string)
-    address       = string
+    public_key           = string
+    endpoint_host        = string
+    endpoint_listen_port = number
+    preshared_key        = optional(string)
+    address              = string
   })
   sensitive = true
 }
