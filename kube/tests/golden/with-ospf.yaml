@@ -113,10 +113,17 @@ spec:
               valueFrom:
                 fieldRef:
                   # Pod IP on the primary cluster network. Backbone IP
-                  # (Multus-assigned secondary interface) is not
+                   # (Multus-assigned secondary interface) is not
                   # exposed via downward API — the sidecar discovers it
                   # at runtime from the interface itself.
                   fieldPath: status.podIP
           securityContext:
             capabilities:
-              add: ["NET_ADMIN"]
+              # FRR daemons (mgmtd, zebra, ospfd) call cap_set_proc on
+              # boot and demand NET_ADMIN, NET_RAW and SYS_ADMIN. The
+              # Compose-rendered sidecar (see
+              # roles/backbone_network/files/ospf_injector/frr_injector/consumer.py)
+              # uses the same capability set. Without SYS_ADMIN the
+              # daemons abort with `privs_init: initial cap_set_proc
+              # failed: Operation not permitted` and ospfd never starts.
+              add: ["NET_ADMIN", "NET_RAW", "SYS_ADMIN"]
