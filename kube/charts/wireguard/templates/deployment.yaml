@@ -19,9 +19,10 @@ spec:
     spec:
       restartPolicy: Always
       # Match the existing docker-compose stack's sysctls byte-for-byte.
-      # net.ipv4.conf.all.* and net.ipv4.ip_forward are namespaced and safe;
-      # the kubelet allows them in pod securityContext.sysctls without an
-      # --allowed-unsafe-sysctls flag.
+      # All three are flagged "unsafe" by upstream kubelet and must be
+      # allow-listed at k3s install time via
+      # `--kubelet-arg=allowed-unsafe-sysctls=net.ipv4.ip_forward,net.ipv4.conf.all.src_valid_mark,net.ipv4.conf.all.rp_filter`.
+      # See examples/mini-site/infra/gcp.tf for the operator-side wiring.
       securityContext:
         sysctls:
           - name: net.ipv4.ip_forward
@@ -32,29 +33,30 @@ spec:
             value: "2"
       containers:
         - name: wg
-          # Container entrypoint is owned by the image (ghcr.io/alexmkx/garuda-wireguard).
-          # That image already reads the env vars below and brings up the
-          # WireGuard interface — identical contract to roles/wireguard's
-          # docker-compose.yml.j2. No command/args override here.
+          # Container entrypoint is owned by the image
+          # (ghcr.io/alexmkx/garuda-wireguard). The image reads env vars
+          # below and brings up the WireGuard interface. Variable names
+          # match roles/wireguard/files/wireguard/entrypoint.sh so the
+          # image contract is identical to the Compose stack.
           image: {{ .Values.images.wireguard | quote }}
           imagePullPolicy: IfNotPresent
           envFrom:
+            # The secret carries WG_PRIVATE_KEY, WG_PEER_PUBLIC_KEY and
+            # the optional WG_PEER_PRESHARED_KEY.
             - secretRef:
                 name: wg-{{ .Values.name }}-keys
           env:
-            - name: WG_KERNEL_IFNAME
+            - name: WG_INTERFACE
               value: {{ .Values.config.kernel_ifname | quote }}
             - name: WG_ADDRESS
               value: {{ .Values.config.address | quote }}
-            - name: WG_PEER_ADDRESS
-              value: {{ .Values.peer.address | quote }}
-            - name: WG_PEER_ENDPOINT
-              value: {{ .Values.peer.endpoint_host | quote }}
-            - name: WG_ALLOWED_IPS
-              value: {{ join "," .Values.allowed_nets | quote }}
             - name: WG_TABLE
               value: {{ .Values.table | quote }}
-            - name: WG_PERSISTENT_KEEPALIVE
+            - name: WG_PEER_ENDPOINT
+              value: {{ .Values.peer.endpoint_host | quote }}
+            - name: WG_PEER_ALLOWED_IPS
+              value: {{ join "," .Values.allowed_nets | quote }}
+            - name: WG_PEER_PERSISTENT_KEEPALIVE
               value: {{ .Values.persistent_keepalive | quote }}
             {{- with .Values.config.listen_port }}
             - name: WG_LISTEN_PORT
@@ -65,22 +67,32 @@ spec:
               add: ["NET_ADMIN"]
         {{- if .Values.ospf }}
         - name: frr-sidecar
-          # Entrypoint owned by ghcr.io/alexmkx/garuda-frr-sidecar. The image
-          # starts zebra and ospfd reading the mounted /etc/frr/frr.conf and
-          # /etc/frr/daemons. Same contract as roles/backbone_network's
-          # injected sidecar container today.
+          # Entrypoint owned by ghcr.io/alexmkx/garuda-frr-sidecar. The
+          # image reads FRR_CONF_B64 / DAEMONS_B64 / VTYSH_CONF_B64 env
+          # vars and writes /etc/frr/{frr.conf,daemons,vtysh.conf}
+          # before starting zebra and ospfd. Same contract as the FRR
+          # sidecars rendered by roles/backbone_network's
+          # ospf_injector. BACKBONE_IP is the address allocated by
+          # Multus on the backbone NAD; the sidecar consumes it for
+          # transit-watcher routing decisions.
           image: {{ .Values.images.frr | quote }}
           imagePullPolicy: IfNotPresent
+          env:
+            - name: FRR_CONF_B64
+              value: {{ include "wireguard.frrConf" . | b64enc | quote }}
+            - name: DAEMONS_B64
+              value: {{ "ospfd=yes\nzebra=yes\n" | b64enc | quote }}
+            - name: VTYSH_CONF_B64
+              value: {{ "service integrated-vtysh-config\n" | b64enc | quote }}
+            - name: BACKBONE_IP
+              valueFrom:
+                fieldRef:
+                  # Pod IP on the primary cluster network. Backbone IP
+                  # (Multus-assigned secondary interface) is not
+                  # exposed via downward API — the sidecar discovers it
+                  # at runtime from the interface itself.
+                  fieldPath: status.podIP
           securityContext:
             capabilities:
               add: ["NET_ADMIN"]
-          volumeMounts:
-            - name: frr-config
-              mountPath: /etc/frr
         {{- end }}
-      {{- if .Values.ospf }}
-      volumes:
-        - name: frr-config
-          configMap:
-            name: wg-{{ .Values.name }}-frr
-      {{- end }}
