@@ -88,6 +88,27 @@ spec:
               value: "0.0.0.0/0"
             - name: WG_PEER_PERSISTENT_KEEPALIVE
               value: "25"
+            # WG_NIC_ATTACH advertises to roles/wireguard/postup.sh which
+            # secondary interfaces are attached. The Compose stack maps
+            # this to docker bridge networks; the k3s deployment maps it
+            # to Multus NetworkAttachmentDefinitions via the pod
+            # annotation `k8s.v1.cni.cncf.io/networks`. postup.sh treats
+            # `border` membership as the trigger for installing NAT and
+            # the via_tunnel RPDB rule.
+            - name: WG_NIC_ATTACH
+              value: "[\"backbone\",\"border\"]"
+            # WG_EGRESS_IFACE tells postup.sh which interface to
+            # masquerade traffic onto. On the Compose hub stack this is
+            # the `border` docker network (because the host adds an
+            # iptables MASQUERADE rule on eth0 for traffic from the
+            # border bridge). On a k3s edge pod the equivalent is the
+            # pod's primary network interface (eth0), because the pod
+            # itself owns the masquerade — there is no host-side NAT
+            # layer on the edge VM. Default `border` keeps backwards
+            # compatibility with hub Compose containers that consume
+            # the same image without setting this env.
+            - name: WG_EGRESS_IFACE
+              value: "eth0"
           securityContext:
             capabilities:
               add: ["NET_ADMIN"]
