@@ -6,6 +6,14 @@ metadata:
   labels:
     {{- include "wireguard.labels" . | nindent 4 }}
 spec:
+  # Recreate: WireGuard holds exclusive kernel resources (wg interface,
+  # Multus NetworkAttachment to host bridges, FRR daemon socket). Two
+  # pods cannot co-exist on the same node, so RollingUpdate deadlocks
+  # until the old pod is manually removed. Recreate terminates the old
+  # pod first (brief downtime), matching compose-era --force-recreate.
+  # See garuda-internal#48.
+  strategy:
+    type: Recreate
   replicas: 1
   selector:
     matchLabels:
@@ -16,6 +24,9 @@ spec:
         {{- include "wireguard.labels" . | nindent 8 }}
       annotations:
         k8s.v1.cni.cncf.io/networks: {{ include "wireguard.networks" . | quote }}
+        {{- if .Values.ospf }}
+        checksum/frr-config: {{ include "frr-sidecar.configmap" (dict "name" .Values.name "namespace" .Values.namespace "ospf" .Values.ospf) | sha256sum }}
+        {{- end }}
     spec:
       restartPolicy: Always
       # Match the existing docker-compose stack's sysctls byte-for-byte.
@@ -31,6 +42,14 @@ spec:
             value: "1"
           - name: net.ipv4.conf.all.rp_filter
             value: "2"
+      {{- $initFrr := include "frr-sidecar.initContainer" (dict
+            "image" .Values.images.frr
+            "ospf"  .Values.ospf
+          ) -}}
+      {{- if $initFrr }}
+      initContainers:
+        {{- $initFrr | nindent 8 }}
+      {{- end }}
       containers:
         - name: wg
           # Container entrypoint is owned by the image
@@ -40,6 +59,13 @@ spec:
           # image contract is identical to the Compose stack.
           image: {{ .Values.images.wireguard | quote }}
           imagePullPolicy: IfNotPresent
+          {{- if .Values.config.listen_port }}
+          ports:
+            - name: wg
+              containerPort: {{ int .Values.config.listen_port }}
+              hostPort: {{ int .Values.config.listen_port }}
+              protocol: UDP
+          {{- end }}
           envFrom:
             # The secret carries WG_PRIVATE_KEY, WG_PEER_PUBLIC_KEY and
             # the optional WG_PEER_PRESHARED_KEY.
@@ -78,41 +104,16 @@ spec:
           securityContext:
             capabilities:
               add: ["NET_ADMIN"]
-        {{- if .Values.ospf }}
-        - name: frr-sidecar
-          # Entrypoint owned by ghcr.io/alexmkx/garuda-frr-sidecar. The
-          # image reads FRR_CONF_B64 / DAEMONS_B64 / VTYSH_CONF_B64 env
-          # vars and writes /etc/frr/{frr.conf,daemons,vtysh.conf}
-          # before starting zebra and ospfd. Same contract as the FRR
-          # sidecars rendered by roles/backbone_network's
-          # ospf_injector. BACKBONE_IP is the address allocated by
-          # Multus on the backbone NAD; the sidecar consumes it for
-          # transit-watcher routing decisions.
-          image: {{ .Values.images.frr | quote }}
-          imagePullPolicy: IfNotPresent
-          env:
-            - name: FRR_CONF_B64
-              value: {{ include "wireguard.frrConf" . | b64enc | quote }}
-            - name: DAEMONS_B64
-              value: {{ "ospfd=yes\nzebra=yes\n" | b64enc | quote }}
-            - name: VTYSH_CONF_B64
-              value: {{ "service integrated-vtysh-config\n" | b64enc | quote }}
-            - name: BACKBONE_IP
-              valueFrom:
-                fieldRef:
-                  # Pod IP on the primary cluster network. Backbone IP
-                   # (Multus-assigned secondary interface) is not
-                  # exposed via downward API — the sidecar discovers it
-                  # at runtime from the interface itself.
-                  fieldPath: status.podIP
-          securityContext:
-            capabilities:
-              # FRR daemons (mgmtd, zebra, ospfd) call cap_set_proc on
-              # boot and demand NET_ADMIN, NET_RAW and SYS_ADMIN. The
-              # Compose-rendered sidecar (see
-              # roles/backbone_network/files/ospf_injector/frr_injector/consumer.py)
-              # uses the same capability set. Without SYS_ADMIN the
-              # daemons abort with `privs_init: initial cap_set_proc
-              # failed: Operation not permitted` and ospfd never starts.
-              add: ["NET_ADMIN", "NET_RAW", "SYS_ADMIN"]
-        {{- end }}
+        {{- $frr := include "frr-sidecar.container" (dict
+              "image" .Values.images.frr
+              "ospf" .Values.ospf
+              "transit" .Values.transit
+            ) -}}
+        {{- if $frr }}{{ $frr | nindent 8 }}{{- end }}
+      {{- if .Values.ospf }}
+      volumes:
+        {{- include "frr-sidecar.volume" (dict
+              "name" .Values.name
+              "ospf" .Values.ospf
+            ) | nindent 8 }}
+      {{- end }}

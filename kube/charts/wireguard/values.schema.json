@@ -6,6 +6,7 @@
   "properties": {
     "namespace": { "type": "string", "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" },
     "name": { "type": "string", "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" },
+    "frr-sidecar": { "type": "object" },
     "config": {
       "type": "object",
       "additionalProperties": false,
@@ -50,13 +51,24 @@
       "required": ["router_id", "interfaces"],
       "properties": {
         "router_id":          { "type": "string" },
-        "area":               { "type": "string" },
         "interfaces":         { "type": "array", "items": { "type": "string" }, "minItems": 1 },
         "passive_interfaces": { "type": "array", "items": { "type": "string" } },
         "default_originate":  { "type": "boolean" },
         "redistribute":       { "type": "array", "items": { "enum": ["connected", "kernel", "static"] } },
-        "extra_frr_conf":     { "type": "string" }
+        "transit_provider":   { "type": "boolean" }
       }
+    },
+    "transit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interfaces"],
+      "properties": {
+        "interfaces": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "runtimePatchChecksum": {
+      "type": "string",
+      "description": "SHA256 of frr-sidecar library chart templates; changing this forces helm_release to upgrade when library templates change (tofu drift detection for #51)."
     }
   }
 }

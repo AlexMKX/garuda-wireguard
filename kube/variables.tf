@@ -74,12 +74,11 @@ over the WireGuard tunnel.
 EOT
   type = object({
     router_id          = string
-    area               = optional(string, "0.0.0.0")
     interfaces         = list(string)
     passive_interfaces = optional(list(string), [])
     default_originate  = optional(bool, false)
     redistribute       = optional(list(string), [])
-    extra_frr_conf     = optional(string, "")
+    transit_provider   = optional(bool, false)
   })
   default = null
 
@@ -99,6 +98,24 @@ EOT
       || alltrue([for r in var.ospf.redistribute : contains(["connected", "kernel", "static"], r)])
     )
     error_message = "ospf.redistribute values must be subset of ['connected', 'kernel', 'static']."
+  }
+}
+
+variable "transit" {
+  description = <<EOT
+Transit-watcher inputs for the bundled FRR sidecar. When `interfaces`
+is non-empty, the chart exports PBR_TRANSIT_TAG and PBR_TRANSIT_INTERFACES,
+which the sidecar entrypoint uses to start transit_watcher.py — same wiring
+as the docker-compose era frr_injector consumer
+(roles/backbone_network/files/ospf_injector/frr_injector/consumer.py:221-223).
+The OSPF tag is hardcoded to TRANSIT_TAG=201 in the chart helper to match
+frr_injector/config.py without exposing extra surface here.
+EOT
+  type = object({
+    interfaces = list(string)
+  })
+  default = {
+    interfaces = []
   }
 }
 

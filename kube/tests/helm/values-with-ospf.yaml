@@ -25,11 +25,9 @@ images:
   frr: ghcr.io/alexmkx/garuda-frr-sidecar:latest
 ospf:
   router_id: 10.130.30.1
-  area: "0.0.0.0"
   interfaces:
     - wg-pt
   passive_interfaces: []
   default_originate: true
   redistribute:
     - connected
-  extra_frr_conf: ""

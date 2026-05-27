@@ -10,7 +10,14 @@ MODULE_DIR="${SCRIPT_DIR}/../.."
 CHART_DIR="${MODULE_DIR}/charts/wireguard"
 GOLDEN_DIR="${SCRIPT_DIR}/../golden"
 
-for scenario in default with-ospf; do
+# Resolve the in-tree frr-sidecar library dependency (Chart.yaml lists
+# it via `file://` repository). Without this step `helm template` fails
+# with "no cached repo found" on a clean checkout. The Terraform Helm
+# provider performs the equivalent step automatically via
+# `dependency_update = true` on helm_release.
+helm dependency update "${CHART_DIR}"
+
+for scenario in default with-ospf with-transit-provider; do
   values_file="${SCRIPT_DIR}/values-${scenario}.yaml"
   helm lint "${CHART_DIR}" -f "${values_file}"
 

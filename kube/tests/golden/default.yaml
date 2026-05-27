@@ -28,6 +28,14 @@ metadata:
     app.kubernetes.io/managed-by: Helm
     garuda.managed-by: helm
 spec:
+  # Recreate: WireGuard holds exclusive kernel resources (wg interface,
+  # Multus NetworkAttachment to host bridges, FRR daemon socket). Two
+  # pods cannot co-exist on the same node, so RollingUpdate deadlocks
+  # until the old pod is manually removed. Recreate terminates the old
+  # pod first (brief downtime), matching compose-era --force-recreate.
+  # See garuda-internal#48.
+  strategy:
+    type: Recreate
   replicas: 1
   selector:
     matchLabels:
