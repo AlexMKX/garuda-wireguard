@@ -7,16 +7,6 @@ locals {
     redistribute       = var.ospf.redistribute
     transit_provider   = try(var.ospf.transit_provider, false)
   }
-  _frr_lib = "${path.module}/../../frr-sidecar/charts/frr-sidecar/templates"
-  # Track frr-sidecar library chart template changes so helm_release
-  # upgrades when library templates change (#51). Passed as a helm value
-  # so tofu detects drift.
-  runtime_patch_checksum = sha256(join("", [
-    filesha256("${local._frr_lib}/_container.tpl"),
-    filesha256("${local._frr_lib}/_frrconf.tpl"),
-    filesha256("${local._frr_lib}/_initContainer.tpl"),
-    filesha256("${local._frr_lib}/_volume.tpl"),
-  ]))
 }
 
 resource "helm_release" "wireguard" {
@@ -48,7 +38,6 @@ resource "helm_release" "wireguard" {
       transit = {
         interfaces = var.transit.interfaces
       }
-      runtimePatchChecksum = local.runtime_patch_checksum
     })
   ]
 }

@@ -32,8 +32,4 @@ ospf: null
 transit:
   interfaces: []
 
-# Passed by modules/wireguard/kube/main.tf for tofu drift detection (#51).
-# Not used inside any chart template; helm_release sees a values change
-# whenever the frr-sidecar library chart templates change, triggering an
-# upgrade even when the consumer chart itself is unchanged.
-runtimePatchChecksum: ""
+
