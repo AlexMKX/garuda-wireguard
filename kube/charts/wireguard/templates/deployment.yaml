@@ -55,7 +55,7 @@ spec:
           # Container entrypoint is owned by the image
           # (ghcr.io/alexmkx/garuda-wireguard). The image reads env vars
           # below and brings up the WireGuard interface. Variable names
-          # match roles/wireguard/files/wireguard/entrypoint.sh so the
+          # match modules/wireguard/kube/image/entrypoint.sh so the
           # image contract is identical to the Compose stack.
           image: {{ .Values.images.wireguard | quote }}
           imagePullPolicy: IfNotPresent
@@ -81,8 +81,8 @@ spec:
             - name: WG_PEER_ENDPOINT
               # Image entrypoint feeds WG_PEER_ENDPOINT verbatim into
               # the WireGuard config's `Endpoint = <host>:<port>` line.
-              # The Compose stack (roles/wireguard/templates/wireguard.env.j2)
-              # joins host and listen_port the same way.
+              # The deployment template joins host and listen_port the same way
+              # to form the WireGuard Endpoint value.
               value: {{ printf "%s:%d" .Values.peer.endpoint_host (int .Values.peer.endpoint_listen_port) | quote }}
             - name: WG_PEER_ALLOWED_IPS
               value: {{ join "," .Values.allowed_nets | quote }}
@@ -92,8 +92,8 @@ spec:
             - name: WG_LISTEN_PORT
               value: {{ . | quote }}
             {{- end }}
-            # WG_NIC_ATTACH advertises to roles/wireguard/postup.sh which
-            # secondary interfaces are attached. The Compose stack maps
+            # WG_NIC_ATTACH advertises to the wireguard postup.sh script which
+            # secondary interfaces are attached. The Compose stack mapped
             # this to docker bridge networks; the k3s deployment maps it
             # to Multus NetworkAttachmentDefinitions via the pod
             # annotation `k8s.v1.cni.cncf.io/networks`. postup.sh treats
